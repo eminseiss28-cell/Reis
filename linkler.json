@@ -1,1 +1,14 @@
-
+{
+  "Dizipal": {
+    "current_url": "https://dizipal711.com",
+    "search_pattern": "dizipal[0-9]+"
+  },
+  "FilmModu": {
+    "current_url": "https://filmmodu12.com",
+    "search_pattern": "filmmodu[0-9]+"
+  },
+  "InatBox": {
+    "current_url": "https://inatbox.xyz",
+    "search_pattern": null
+  }
+}
