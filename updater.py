@@ -1,48 +1,43 @@
-import os
-import requests
-import json
+import os, requests, json, re
 
-# Ana kaynakların kök adresleri
-KEKIK_BASE = "https://raw.githubusercontent.com/keyiflerolsun/Kekik-cloudstream/master"
-PITIPITII_BASE = "https://raw.githubusercontent.com/sarapcanagii/Pitipitii/main"
+# Aramanın yapılacağı ana depolar ve paket isimleri
+REPOS = [
+    {"n": "Pitipitii", "b": "https://raw.githubusercontent.com/sarapcanagii/Pitipitii/master", "p": "pitipitii"},
+    {"n": "Kekik", "b": "https://raw.githubusercontent.com/keyiflerolsun/Kekik-cloudstream/master", "p": "kekik"},
+    {"n": "Nikyokki", "b": "https://raw.githubusercontent.com/Nikyokki/Turkish-Providers/main", "p": "nikyokki"},
+    {"n": "Pitipitii_Main", "b": "https://raw.githubusercontent.com/sarapcanagii/Pitipitii/main", "p": "pitipitii"},
+    {"n": "Kraptor", "b": "https://raw.githubusercontent.com/Kraptor123/cs-kraptor/master", "p": "kraptor"}
+]
 
 with open('linkler.json', 'r', encoding='utf-8') as f:
     target_sites = json.load(f)
 
 for site, url in target_sites.items():
-    print(f"🛠️ {site} hazırlanıyor...")
-    # Klasör yolunu senin kullanıcı adına (emin) göre ayarlar
-    path = f"{site}/src/main/kotlin/com/emin"
-    os.makedirs(path, exist_ok=True)
-
-    # Denenecek muhtemel dosya yolları (Büyük/Küçük harf duyarlılığı için)
-    sources = [
-        f"{PITIPITII_BASE}/{site}/src/main/kotlin/com/pitipitii/{site}.kt",
-        f"{PITIPITII_BASE}/{site}/src/main/kotlin/com/pitipitii/{site}Provider.kt",
-        f"{KEKIK_BASE}/{site}/src/main/kotlin/com/kekik/{site}.kt",
-        f"{KEKIK_BASE}/{site}/src/main/kotlin/com/kekik/{site}Provider.kt"
-    ]
-
+    print(f"🛠️ {site} aranıyor...")
     success = False
-    for src_url in sources:
-        try:
-            res = requests.get(src_url)
-            if res.status_code == 200:
-                code = res.text
-                # Linkleri cerrahi müdahale ile değiştir
-                code = code.replace('mainUrl = "', f'mainUrl = "{url}')
-                code = code.replace('baseUrl = "', f'baseUrl = "{url}')
-                # Paket ismini senin adına (com.emin) çevir ki TV'de çakışmasın
-                code = code.replace('package com.pitipitii', 'package com.emin')
-                code = code.replace('package com.kekik', 'package com.emin')
-                
-                with open(f"{path}/{site}Provider.kt", "w", encoding='utf-8') as f:
-                    f.write(code)
-                print(f"✅ {site} başarıyla kuruldu!")
-                success = True
-                break
-        except:
-            continue
-    
-    if not success:
-        print(f"❌ {site} için kaynak kod bulunamadı! Linki veya ismi kontrol et.")
+    for repo in REPOS:
+        # Farklı dosya yolu kombinasyonlarını dener
+        patterns = [
+            f"{repo['b']}/{site}/src/main/kotlin/com/{repo['p']}/{site}.kt",
+            f"{repo['b']}/{site}/src/main/kotlin/com/{repo['p']}/{site}Provider.kt",
+            f"{repo['b']}/Providers/{site}/src/main/kotlin/com/{repo['p']}/{site}Provider.kt"
+        ]
+        for src_url in patterns:
+            try:
+                res = requests.get(src_url, timeout=10)
+                if res.status_code == 200:
+                    code = res.text
+                    # Link ve Paket Güncelleme (Cerrahi Müdahale)
+                    code = code.replace('mainUrl = "', f'mainUrl = "{url}')
+                    code = code.replace('baseUrl = "', f'baseUrl = "{url}')
+                    code = re.sub(r'package\s+com\.[a-zA-Z0-9\.]+', 'package com.emin', code)
+                    
+                    path = f"{site}/src/main/kotlin/com/emin"
+                    os.makedirs(path, exist_ok=True)
+                    with open(f"{path}/{site}Provider.kt", "w", encoding='utf-8') as f:
+                        f.write(code)
+                    print(f"✅ {site} [{repo['n']}] üzerinden kuruldu!")
+                    success = True; break
+            except: continue
+        if success: break
+    if not success: print(f"❌ {site} hiçbir kaynakta bulunamadı.")
