@@ -1,24 +1,30 @@
 import os, requests, json, re, zipfile, io
 
-# Genisletilmis Kaynak Repolar (Turkce + Global)
 SOURCES = [
     "https://github.com/sarapcanagii/Pitipitii/archive/refs/heads/main.zip",
     "https://github.com/keyiflerolsun/Kekik-cloudstream/archive/refs/heads/master.zip",
-    "https://github.com/recloudstream/cloudstream-extensions/archive/refs/heads/master.zip",
-    "https://github.com/Nikyokki/Turkish-Providers/archive/refs/heads/main.zip"
+    "https://github.com/recloudstream/cloudstream-extensions/archive/refs/heads/master.zip"
 ]
 
 with open('linkler.json', 'r', encoding='utf-8') as f:
     target_sites = json.load(f)
 
-def update_code(code, url, site_name):
-    code = code.replace('mainUrl = "', f'mainUrl = "{url}')
-    code = code.replace('baseUrl = "', f'baseUrl = "{url}')
-    code = re.sub(r'package\s+com\.[a-zA-Z0-9\.]+', 'package com.emin', code)
-    return code
+# Marş basan dosyanın şablonu (Plugin.kt)
+PLUGIN_TEMPLATE = """package com.emin
+import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
+import com.lagradost.cloudstream3.plugins.Plugin
+import android.content.Context
+
+@CloudstreamPlugin
+class {site}Plugin: Plugin() {{
+    override fun load(context: Context) {{
+        registerMainAPI({site}())
+    }}
+}}
+"""
 
 for site, url in target_sites.items():
-    print(f"🔍 {site} araniyor...")
+    print(f"🔍 {site} montaj hattına girdi...")
     found = False
     for repo_url in SOURCES:
         if found: break
@@ -29,13 +35,24 @@ for site, url in target_sites.items():
                     if site.lower() in file_info.filename.lower() and file_info.filename.endswith('.kt'):
                         with z.open(file_info) as f:
                             code = f.read().decode('utf-8')
-                            if "Cloudstream" in code or "Provider" in code:
-                                print(f"✅ {site} bulundu!")
-                                updated_code = update_code(code, url, site)
+                            if "MainAPI" in code or "Provider" in code:
+                                print(f"✅ {site} motoru bulundu!")
+                                # Linki ve paket adını güncelle
+                                code = code.replace('mainUrl = "', f'mainUrl = "{url}')
+                                code = code.replace('baseUrl = "', f'baseUrl = "{url}')
+                                code = re.sub(r'package\s+com\.[a-zA-Z0-9\.]+', 'package com.emin', code)
+                                
                                 path = f"{site}/src/main/kotlin/com/emin"
                                 os.makedirs(path, exist_ok=True)
-                                with open(f"{path}/{site}Provider.kt", "w", encoding='utf-8') as f:
-                                    f.write(updated_code)
+                                
+                                # 1. Motoru (Provider) kaydet
+                                with open(f"{path}/{site}Provider.kt", "w", encoding='utf-8') as f_out:
+                                    f_out.write(code)
+                                
+                                # 2. Kontağı (Plugin) kaydet (Senin attığın dosya)
+                                with open(f"{path}/{site}Plugin.kt", "w", encoding='utf-8') as f_out:
+                                    f_out.write(PLUGIN_TEMPLATE.format(site=site))
+                                
                                 found = True; break
         except: continue
-    if not found: print(f"❌ {site} hiçbir kaynakta bulunamadi.")
+    if not found: print(f"❌ {site} bulunamadı.")
